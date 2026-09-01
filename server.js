@@ -20,10 +20,19 @@ const crypto = require('crypto');
 
 const PORT = Number(process.env.PORT) || 8080;
 
+/**
+ * Reads a non-secret setting. Deployment UIs often hand the value over still
+ * wrapped in the quotes the user typed, so strip those and surrounding space.
+ * Not used for passwords, where a quote could be a real character.
+ */
+function setting(name) {
+  return String(process.env[name] || '').trim().replace(/^["']|["']$/g, '').trim();
+}
+
 // Sub-path the app is published under, e.g. BASE_PATH=/speedrun.
 // Normalised to '' or '/xxx' (no trailing slash).
 const BASE_PATH = (function () {
-  const raw = String(process.env.BASE_PATH || '').trim().replace(/^\/+|\/+$/g, '');
+  const raw = setting('BASE_PATH').replace(/^\/+|\/+$/g, '');
   return raw ? '/' + raw : '';
 })();
 
@@ -33,7 +42,7 @@ const AUTH_PASS = process.env.AUTH_PASS || '';
 
 // When on, the scoreboard at /board is readable without the password.
 // Only reads are ever exempt - recording a time always needs the password.
-const PUBLIC_BOARD = /^(1|true|yes|on)$/i.test(String(process.env.PUBLIC_BOARD || ''));
+const PUBLIC_BOARD = /^(1|true|yes|on|open|public)$/i.test(setting('PUBLIC_BOARD'));
 
 // The exact GET routes the scoreboard needs, and nothing more.
 const BOARD_ROUTES = {
@@ -535,6 +544,8 @@ server.listen(PORT, function () {
   console.log('  Finish post : add ?post=finish');
   if (BASE_PATH) console.log('  Sub-path    : ' + BASE_PATH + '/');
   console.log('  Password    : ' + (AUTH_USER ? 'on (user ' + AUTH_USER + ')' : 'off'));
+  console.log('  Scoreboard  : ' + BASE_PATH + '/board  ' +
+    (PUBLIC_BOARD ? '(open to all, read-only)' : '(password required)'));
   // Printed as an absolute path: this is the exact path to mount a volume on.
   console.log('  Data dir    : ' + DATA_DIR + (writable ? '' : '  <-- NOT WRITABLE'));
   console.log('  Persistence : ' + (writable ? 'ok' : 'BROKEN - times will be lost'));
