@@ -1,0 +1,3 @@
+# Everything here runs on Linux (Docker build, install.sh). Windows line
+# endings would break the shell scripts, so normalise to LF everywhere.
+* text=auto eol=lf

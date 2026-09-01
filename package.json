@@ -1,0 +1,10 @@
+{
+  "name": "chronometrage",
+  "version": "1.0.0",
+  "description": "Chronometrage de runs bateaux entre une ligne de depart et une ligne d'arrivee",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,28 @@
+# Race Timer, for a Dokploy "Compose" service.
+#
+# If you use a Dokploy "Application" instead, you do not need this file:
+# Dokploy builds the Dockerfile and wires Traefik from the Domains tab.
+# Either way, keep the volume - without it a redeploy wipes the recorded times.
+
+services:
+  race-timer:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: 8090
+      # Set this to the sub-path the app is published under. Harmless if the
+      # proxy already strips the prefix - the server accepts both forms.
+      BASE_PATH: /speedrun
+      # Shared password for both posts. Leave AUTH_USER empty to disable.
+      AUTH_USER: timing
+      AUTH_PASS: ${AUTH_PASS:?set AUTH_PASS in the environment}
+    volumes:
+      - race-timer-data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/healthz"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+
+volumes:
+  race-timer-data:

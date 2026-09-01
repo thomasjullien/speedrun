@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0d1420">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Race Timer">
+<title>Race Timer</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#9201;</text></svg>">
+</head>
+<body>
+
+<header>
+  <div class="hdr-top">
+    <div class="hdr-title" id="eventName">Race Timer</div>
+    <div class="clock mono" id="clock">--:--:--</div>
+    <div class="pill" id="netPill"><span class="dot"></span><span id="netTxt">…</span></div>
+  </div>
+  <nav>
+    <button data-view="start">Start</button>
+    <button data-view="finish">Finish</button>
+    <button data-view="results">Results</button>
+    <button data-view="setup">Setup</button>
+  </nav>
+</header>
+
+<main>
+  <section class="view" id="view-start"></section>
+  <section class="view" id="view-finish"></section>
+  <section class="view" id="view-results"></section>
+  <section class="view" id="view-setup"></section>
+</main>
+
+<div id="toast" role="status" aria-live="polite">
+  <span class="msg"></span>
+  <button type="button" hidden>Undo</button>
+</div>
+
+<div id="modal" role="dialog" aria-modal="true">
+  <div class="box">
+    <h3></h3>
+    <div class="body"></div>
+    <div class="acts"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+[Unit]
+Description=Race Timer (speedrun)
+Documentation=https://www.imoca.tech/speedrun/
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/race-timer
+Environment=NODE_ENV=production
+Environment=PORT=8090
+ExecStart=/usr/bin/node /opt/race-timer/server.js
+Restart=always
+RestartSec=2
+
+# The state file and the event log live here; nothing else needs to be writable.
+ReadWritePaths=/opt/race-timer/data
+ProtectSystem=full
+PrivateTmp=true
+NoNewPrivileges=true
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=race-timer
+
+[Install]
+WantedBy=multi-user.target

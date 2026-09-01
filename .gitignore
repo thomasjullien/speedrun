@@ -1,0 +1,8 @@
+# Recorded races: state and the append-only event log. Never committed -
+# on the server this lives in a Docker volume so it survives redeploys.
+data/
+
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
