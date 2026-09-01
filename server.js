@@ -56,6 +56,26 @@ function defaultState() {
 let state = defaultState();
 const processedActions = new Map(); // actionId -> receivedAt, for idempotency
 
+/**
+ * Confirms the data directory is actually writable. Without a mounted volume a
+ * container starts fine and only loses everything on the next deploy, so say so
+ * loudly at boot rather than let it be discovered mid-race.
+ */
+function checkDataDir() {
+  const probe = path.join(DATA_DIR, '.write-test');
+  try {
+    fs.writeFileSync(probe, String(Date.now()));
+    fs.unlinkSync(probe);
+    return true;
+  } catch (err) {
+    console.error('');
+    console.error('  !! CANNOT WRITE TO ' + DATA_DIR + ' (' + err.code + ')');
+    console.error('  !! Times will not be saved. Mount a writable volume there.');
+    console.error('');
+    return false;
+  }
+}
+
 function loadState() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(STATE_FILE)) return;
@@ -474,6 +494,7 @@ function localAddresses() {
 }
 
 loadState();
+const writable = checkDataDir();
 server.listen(PORT, function () {
   console.log('');
   console.log('  Race Timer - server running');
@@ -487,6 +508,9 @@ server.listen(PORT, function () {
   console.log('  Finish post : add ?post=finish');
   if (BASE_PATH) console.log('  Sub-path    : ' + BASE_PATH + '/');
   console.log('  Password    : ' + (AUTH_USER ? 'on (user ' + AUTH_USER + ')' : 'off'));
-  console.log('  Ctrl+C to stop. Data lives in ./data/');
+  // Printed as an absolute path: this is the exact path to mount a volume on.
+  console.log('  Data dir    : ' + DATA_DIR + (writable ? '' : '  <-- NOT WRITABLE'));
+  console.log('  Persistence : ' + (writable ? 'ok' : 'BROKEN - times will be lost'));
+  console.log('  Ctrl+C to stop.');
   console.log('');
 });
