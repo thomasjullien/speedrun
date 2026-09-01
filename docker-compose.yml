@@ -18,11 +18,6 @@ services:
       AUTH_PASS: ${AUTH_PASS:?set AUTH_PASS in the environment}
     volumes:
       - race-timer-data:/app/data
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8090/healthz"]
-      interval: 30s
-      timeout: 3s
-      start_period: 5s
 
 volumes:
   race-timer-data:
