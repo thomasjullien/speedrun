@@ -836,6 +836,10 @@
           '<div class="bp">' + (r.pos || '&ndash;') + '</div>' +
           '<div class="bn">' + esc(r.boat.name) +
             (r.boat.sail ? '<span class="bs">' + esc(r.boat.sail) + '</span>' : '') + '</div>' +
+          // Attempts used, cancelled runs excluded: shows at a glance who still
+          // has a try in hand.
+          '<div class="brn mono"><b>' + r.attempts + '</b>/' + s.maxAttempts +
+            '<span class="lbl"> runs</span></div>' +
           '<div class="bt mono">' + (r.ms != null ? fmtDur(r.ms) : '&ndash;') + '</div>' +
           '<div class="bg mono">' + (r.gap != null ? '+' + fmtDur(r.gap) : '') + '</div>' +
         '</div>'
@@ -878,7 +882,7 @@
     var runId = uid('run_');
     queue({ type: 'start', boatId: boatId, ts: ts, runId: runId, force: !!force });
     buzz(35);
-    toast('Start &middot; ' + boatLabel(s, boatId).replace(/&middot;/g, '') + ' at ' + fmtTod(ts, true), {
+    toast('Start · ' + boatLabel(s, boatId) + ' at ' + fmtTod(ts, true), {
       undo: function () { queue({ type: 'cancelRun', runId: runId, reason: 'mistap' }); },
     });
   }
@@ -931,7 +935,7 @@
 
     queue({ type: 'finish', runId: runId, ts: ts });
     buzz([25, 40, 25]);
-    toast(boatLabel(s, run.boatId) + ' &middot; ' + fmtDur(ts - run.startAt), {
+    toast(boatLabel(s, run.boatId) + ' · ' + fmtDur(ts - run.startAt), {
       undo: function () { queue({ type: 'unfinish', runId: runId }); },
     });
   }
@@ -951,14 +955,14 @@
 
     var actions = [
       { row: [
-        { label: 'Start &minus;1s', keepOpen: true, onClick: function () { nudge('startAt', -1000); } },
+        { label: 'Start −1s', keepOpen: true, onClick: function () { nudge('startAt', -1000); } },
         { label: 'Start +1s', keepOpen: true, onClick: function () { nudge('startAt', 1000); } },
       ] },
     ];
 
     if (run.finishAt) {
       actions.push({ row: [
-        { label: 'Finish &minus;1s', keepOpen: true, onClick: function () { nudge('finishAt', -1000); } },
+        { label: 'Finish −1s', keepOpen: true, onClick: function () { nudge('finishAt', -1000); } },
         { label: 'Finish +1s', keepOpen: true, onClick: function () { nudge('finishAt', 1000); } },
       ] });
     }
@@ -1007,14 +1011,14 @@
           var sl = el('mSail');
           queue({
             type: 'updateBoat',
-            id: boatId,
+            boatId: boatId,
             name: n ? n.value : boat.name,
             sail: sl ? sl.value : '',
             color: chosen,
           });
         } },
         { label: 'Remove boat and its runs', cls: 'danger', onClick: function () {
-          queue({ type: 'removeBoat', id: boatId });
+          queue({ type: 'removeBoat', boatId: boatId });
         } },
         { label: 'Cancel', onClick: function () {} },
       ],
@@ -1169,7 +1173,7 @@
       }
 
       case 'move-boat':
-        queue({ type: 'moveBoat', id: node.getAttribute('data-boat'), direction: node.getAttribute('data-dir') });
+        queue({ type: 'moveBoat', boatId: node.getAttribute('data-boat'), direction: node.getAttribute('data-dir') });
         break;
 
       case 'edit-boat':

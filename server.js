@@ -191,6 +191,10 @@ function runningRunOfBoat(boatId) {
 /**
  * Every mutation goes through here. Each action carries a client-generated id,
  * so replaying a queued action after a network drop can never double-count it.
+ *
+ * That makes `action.id` reserved: it is the de-duplication key and nothing
+ * else. Payload identifiers get their own field (`boatId`, `runId`), or two
+ * edits to the same boat would share a key and the second would be dropped.
  */
 function applyAction(action) {
   const type = action && action.type;
@@ -299,7 +303,7 @@ function applyAction(action) {
     }
 
     case 'updateBoat': {
-      const boat = boatById(action.id);
+      const boat = boatById(action.boatId);
       if (!boat) return { error: 'Unknown boat' };
       if (typeof action.name === 'string' && action.name.trim()) boat.name = action.name.trim();
       if (typeof action.sail === 'string') boat.sail = action.sail.trim();
@@ -308,15 +312,15 @@ function applyAction(action) {
     }
 
     case 'removeBoat': {
-      const i = state.boats.findIndex(function (b) { return b.id === action.id; });
+      const i = state.boats.findIndex(function (b) { return b.id === action.boatId; });
       if (i < 0) return { error: 'Unknown boat' };
       state.boats.splice(i, 1);
-      state.runs = state.runs.filter(function (r) { return r.boatId !== action.id; });
+      state.runs = state.runs.filter(function (r) { return r.boatId !== action.boatId; });
       return { ok: true };
     }
 
     case 'moveBoat': {
-      const i = state.boats.findIndex(function (b) { return b.id === action.id; });
+      const i = state.boats.findIndex(function (b) { return b.id === action.boatId; });
       if (i < 0) return { error: 'Unknown boat' };
       const j = i + (action.direction === 'up' ? -1 : 1);
       if (j < 0 || j >= state.boats.length) return { ok: true };
