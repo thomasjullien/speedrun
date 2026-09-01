@@ -10,6 +10,10 @@ on its best run.
 - **Finish post** — the boats currently on course are listed with their running
   clock; tap the one that crosses.
 - **Results** — best run per boat, gap to the leader, every run, CSV export.
+  Boats level on their best run are separated by their second best, then their
+  third, and so on; a boat with no further time to offer loses the tie-break,
+  which also puts boats with no time at all at the bottom. When a tie-break
+  decided the order, the row says so, and the CSV carries the second best.
 - **Setup** — boats (name, sail number, colour), attempts per boat.
 
 No app to install: it is a web page. Open it on a phone and, if you like, add it

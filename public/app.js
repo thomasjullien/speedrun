@@ -355,28 +355,56 @@
     return runningRuns(s).filter(function (r) { return r.boatId === id; })[0] || null;
   }
 
-  /** Ranking: best time per boat, boats without a time last. */
+  /** Every timed run of a boat, quickest first. */
+  function sortedTimes(s, id) {
+    return doneRuns(s, id)
+      .map(duration)
+      .sort(function (x, y) { return x - y; });
+  }
+
+  /**
+   * Two boats level on their best run are separated by their second best, then
+   * by the third, and so on. A boat with no further time to offer loses the
+   * tie-break, which also places boats with no time at all at the bottom.
+   */
+  function compareBoats(a, b) {
+    var n = Math.max(a.times.length, b.times.length);
+    for (var i = 0; i < n; i++) {
+      var x = a.times[i];
+      var y = b.times[i];
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  /** Ranking: best time per boat, ties broken on the runs behind it. */
   function ranking(s) {
     var rows = s.boats.map(function (b) {
-      var best = bestRun(s, b.id);
+      var times = sortedTimes(s, b.id);
       return {
         boat: b,
-        best: best,
-        ms: best ? duration(best) : null,
+        best: bestRun(s, b.id),
+        times: times,
+        ms: times.length ? times[0] : null,
+        second: times.length > 1 ? times[1] : null,
         attempts: attemptsUsed(s, b.id),
-        finished: doneRuns(s, b.id).length,
+        finished: times.length,
       };
     });
-    rows.sort(function (a, b) {
-      if (a.ms == null && b.ms == null) return 0;
-      if (a.ms == null) return 1;
-      if (b.ms == null) return -1;
-      return a.ms - b.ms;
-    });
+    rows.sort(compareBoats);
     var leader = rows.length && rows[0].ms != null ? rows[0].ms : null;
     rows.forEach(function (r, i) {
       r.pos = r.ms != null ? i + 1 : null;
       r.gap = r.ms != null && leader != null && i > 0 ? r.ms - leader : null;
+      // Level with a neighbour on the best run: the order came from the
+      // tie-break, so say so rather than leave it looking arbitrary.
+      var prev = rows[i - 1];
+      var next = rows[i + 1];
+      r.tied = r.ms != null &&
+        ((prev && prev.ms === r.ms) || (next && next.ms === r.ms));
     });
     return rows;
   }
@@ -665,7 +693,11 @@
       var cls = r.pos ? 'rank p' + r.pos : 'rank none';
       var sub = r.pos
         ? r.finished + ' timed run' + (r.finished > 1 ? 's' : '') +
-          (r.attempts >= s.maxAttempts ? ' &middot; all attempts used' : '')
+          (r.attempts >= s.maxAttempts ? ' &middot; all attempts used' : '') +
+          (r.tied
+            ? ' &middot; tie on best, 2nd best ' +
+              (r.second != null ? fmtDur(r.second) : 'none')
+            : '')
         : (runningRunOf(s, r.boat.id) ? 'on course' : 'no time yet');
       out.push(
         '<div class="' + cls + '"' + colorStyle(r.boat.color || 'transparent') + '>' +
@@ -1046,7 +1078,7 @@
     var lines = [];
     lines.push([s.eventName, new Date().toLocaleString()].join(';'));
     lines.push('');
-    lines.push('Rank;Boat;Sail;Colour;Best time;Best (s);Timed runs;Attempts used;Gap to leader');
+    lines.push('Rank;Boat;Sail;Colour;Best time;Best (s);2nd best;Timed runs;Attempts used;Gap to leader');
     rows.forEach(function (r) {
       lines.push([
         r.pos || '',
@@ -1055,6 +1087,7 @@
         r.boat.color || '',
         r.ms != null ? fmtDur(r.ms) : '',
         secs(r.ms),
+        r.second != null ? fmtDur(r.second) : '',
         r.finished,
         r.attempts + '/' + s.maxAttempts,
         r.gap != null ? '+' + fmtDur(r.gap) : '',
