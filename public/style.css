@@ -550,3 +550,174 @@ input:focus { outline: none; border-color: var(--blue); }
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
 .swatch.sel { box-shadow: inset 0 0 0 3px #fff, 0 0 0 2px var(--c); }
+
+/* ---------------------------------------------------------- scoreboard */
+
+/* Read-only display: the app chrome disappears entirely. */
+body.board-mode > header { display: none; }
+body.board-mode main { max-width: 1100px; padding: 18px 18px 40px; }
+
+.board-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.board-logo {
+  height: auto;
+  max-height: 46px;
+  max-width: 220px;
+  object-fit: contain;
+  flex: none;
+}
+
+/* A boxy mark needs more height than a long wordmark to carry the same
+   visual weight, so the two are capped separately. */
+.board-logo.mark { max-height: 62px; max-width: 140px; }
+.board-logo.wordmark { max-width: 250px; }
+
+/* Dark artwork on transparency turned into a white mark for the dark board.
+   Not needed if the official reversed file is used instead. */
+.board-logo.reversed { filter: brightness(0) invert(1); }
+
+.board-title { flex: 1; text-align: center; min-width: 0; }
+.board-title h1 {
+  margin: 0;
+  font-size: clamp(20px, 4.4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.board-sub {
+  margin-top: 5px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+}
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--go);
+  margin-right: 7px;
+  vertical-align: 0;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+.board-section {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--txt-faint);
+  margin: 22px 2px 10px;
+}
+
+.board-live {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.board-live-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border-left: 6px solid var(--boat, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.board-live-card .bl-name {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-live-card .bl-time {
+  font-size: 26px;
+  font-weight: 750;
+  color: var(--stop);
+  letter-spacing: -0.5px;
+}
+
+.board-table { display: flex; flex-direction: column; gap: 7px; }
+
+.board-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border-left: 6px solid var(--boat, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.board-row.leader {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.18), var(--card));
+  box-shadow: inset 0 0 0 1.5px rgba(251, 191, 36, 0.55);
+}
+.board-row .bp {
+  width: 40px;
+  flex: none;
+  text-align: center;
+  font-size: clamp(20px, 2.6vw, 28px);
+  font-weight: 800;
+  color: var(--txt-faint);
+}
+.board-row.leader .bp { color: var(--gold); }
+.board-row .bn {
+  flex: 1;
+  min-width: 0;
+  font-size: clamp(17px, 2.4vw, 24px);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-row .bn .bs {
+  margin-left: 10px;
+  font-size: 0.62em;
+  font-weight: 600;
+  color: var(--txt-faint);
+  letter-spacing: 0.5px;
+}
+.board-row .bt {
+  font-size: clamp(19px, 2.8vw, 28px);
+  font-weight: 750;
+  letter-spacing: -0.5px;
+}
+.board-row .bg {
+  width: 92px;
+  flex: none;
+  text-align: right;
+  font-size: clamp(12px, 1.6vw, 15px);
+  color: var(--txt-faint);
+}
+
+/* Narrow screens: the two logos share the top row and the title drops below,
+   instead of the title being squeezed into the middle column. */
+@media (max-width: 620px) {
+  .board-head { flex-wrap: wrap; justify-content: space-between; gap: 12px; }
+  .board-title { order: 3; flex-basis: 100%; }
+  .board-logo { max-height: 34px; max-width: 150px; }
+  .board-logo.mark { max-height: 42px; max-width: 90px; }
+  .board-logo.wordmark { max-width: 165px; }
+}
+
+@media (max-width: 480px) {
+  .board-row { gap: 9px; padding: 12px 12px; }
+  .board-row .bp { width: 26px; }
+  .board-row .bg { width: 58px; }
+}

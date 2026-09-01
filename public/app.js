@@ -38,6 +38,12 @@
 
   function api(path) { return API_BASE + path; }
 
+  // Read-only scoreboard: reached at /board, or with ?post=board.
+  // The server refuses every write from an unauthenticated visitor, so this is
+  // not merely a hidden UI - the results genuinely cannot be altered from here.
+  var BOARD_MODE = /\/board\/?$/.test(location.pathname) ||
+    new URLSearchParams(location.search).get('post') === 'board';
+
   // ============================================================== utilities
 
   function el(id) { return document.getElementById(id); }
@@ -456,6 +462,7 @@
     finish: el('view-finish'),
     results: el('view-results'),
     setup: el('view-setup'),
+    board: el('view-board'),
   };
 
   function renderNet() {
@@ -473,7 +480,10 @@
 
   function setView(next) {
     view = next;
-    try { localStorage.setItem(LS_VIEW, next); } catch (e) {}
+    // Never remember 'board': it would hijack the app on a later visit.
+    if (next !== 'board') {
+      try { localStorage.setItem(LS_VIEW, next); } catch (e) {}
+    }
     Object.keys(views).forEach(function (k) {
       views[k].classList.toggle('active', k === next);
     });
@@ -494,7 +504,8 @@
     // Re-rendering under the user's fingers would drop focus mid-typing.
     var typing = document.activeElement && document.activeElement.tagName === 'INPUT';
 
-    if (view === 'start') views.start.innerHTML = htmlStart(s);
+    if (view === 'board') views.board.innerHTML = htmlBoard(s);
+    else if (view === 'start') views.start.innerHTML = htmlStart(s);
     else if (view === 'finish') views.finish.innerHTML = htmlFinish(s);
     else if (view === 'results') views.results.innerHTML = htmlResults(s);
     else if (view === 'setup' && !typing) views.setup.innerHTML = htmlSetup(s);
@@ -771,6 +782,70 @@
     return out.join('');
   }
 
+  // -------------------------------------------------------------- scoreboard
+  //
+  // Read-only display for a spectator screen. No control that mutates anything
+  // is rendered here, and the server rejects writes from unauthenticated
+  // visitors anyway.
+
+  function htmlBoard(s) {
+    var rows = ranking(s);
+    var live = runningRuns(s);
+    var out = [];
+
+    out.push(
+      '<div class="board-head">' +
+        '<img class="board-logo mark" src="logos/imoca.png" alt="IMOCA"' +
+          ' onerror="this.remove()">' +
+        '<div class="board-title"><h1>' + esc(s.eventName || 'Race day') + '</h1>' +
+          '<div class="board-sub"><span class="live-dot"></span>' +
+          'Live &middot; best run per boat</div></div>' +
+        // Dark navy wordmark on a transparent background: rendered white so it
+        // reads on the dark board. Swap in the official reversed file to drop
+        // the filter (see public/logos/README.md).
+        '<img class="board-logo wordmark reversed" src="logos/ocean-race.png"' +
+          ' alt="The Ocean Race" onerror="this.remove()">' +
+      '</div>'
+    );
+
+    if (live.length) {
+      out.push('<div class="board-section">On course</div><div class="board-live">');
+      live.forEach(function (r) {
+        out.push(
+          '<div class="board-live-card"' + colorStyle(boatColor(s, r.boatId)) + '>' +
+            '<div class="bl-name">' + esc(boatLabel(s, r.boatId)) + '</div>' +
+            '<div class="bl-time mono" data-live-start="' + r.startAt + '">0:00.0</div>' +
+          '</div>'
+        );
+      });
+      out.push('</div>');
+    }
+
+    out.push('<div class="board-section">Standings</div>');
+
+    if (!rows.length) {
+      out.push('<div class="empty">No boats yet.</div>');
+      return out.join('');
+    }
+
+    out.push('<div class="board-table">');
+    rows.forEach(function (r) {
+      out.push(
+        '<div class="board-row ' + (r.pos === 1 ? 'leader' : '') + '"' +
+          colorStyle(r.boat.color || 'transparent') + '>' +
+          '<div class="bp">' + (r.pos || '&ndash;') + '</div>' +
+          '<div class="bn">' + esc(r.boat.name) +
+            (r.boat.sail ? '<span class="bs">' + esc(r.boat.sail) + '</span>' : '') + '</div>' +
+          '<div class="bt mono">' + (r.ms != null ? fmtDur(r.ms) : '&ndash;') + '</div>' +
+          '<div class="bg mono">' + (r.gap != null ? '+' + fmtDur(r.gap) : '') + '</div>' +
+        '</div>'
+      );
+    });
+    out.push('</div>');
+
+    return out.join('');
+  }
+
   // ============================================================== live ticker
 
   // Only touch the DOM when the text actually changes: with nothing on course
@@ -1010,6 +1085,10 @@
   }
 
   document.addEventListener('click', function (e) {
+    // The scoreboard has no controls at all: belt and braces alongside the
+    // server-side rule that only the password can write.
+    if (BOARD_MODE) return;
+
     var navBtn = e.target.closest('nav button');
     if (navBtn) return setView(navBtn.getAttribute('data-view'));
 
@@ -1142,8 +1221,10 @@
     var wanted = params.get('post') || params.get('view');
     var stored = null;
     try { stored = localStorage.getItem(LS_VIEW); } catch (e) {}
-    var initial = wanted || stored || 'start';
+    var initial = BOARD_MODE ? 'board' : (wanted || stored || 'start');
     if (!views[initial]) initial = 'start';
+
+    if (BOARD_MODE) document.body.classList.add('board-mode');
 
     fetch(api('api/state'), { cache: 'no-store' })
       .then(function (r) { return r.json(); })

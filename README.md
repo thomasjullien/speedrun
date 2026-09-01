@@ -38,6 +38,23 @@ a replay can never double-count. Every action is also appended to
 which one it is. The big button freezes the time immediately; you pick the boat
 afterwards, with no penalty on the recorded time.
 
+## The scoreboard
+
+`/board` is a read-only display for a spectator screen: the event name between
+the two logos, the boats currently on course with their running clocks, and the
+standings. No app chrome, no navigation, no control of any kind.
+
+Read-only is enforced by the server, not just hidden in the page. With
+`PUBLIC_BOARD=1`, exactly these are readable without the password:
+
+    /board   /app.js   /style.css   /logos/*   /api/state   /api/stream   /api/time
+
+Everything else still demands it, and **`POST /api/action` always does** — so a
+spectator with the link can watch the race but cannot alter a single time. Leave
+`PUBLIC_BOARD` unset to keep the board behind the password like the rest.
+
+Logos live in `public/logos/` — see the README there.
+
 ## Running it locally
 
 ```bash
@@ -49,54 +66,56 @@ use from a phone on the same Wi-Fi. Data is written to `./data/`.
 
 Useful URLs — bookmark one per post:
 
-| Post   | URL                  |
-| ------ | -------------------- |
-| Start  | `/?post=start`       |
-| Finish | `/?post=finish`      |
-| Results| `/?post=results`     |
+| Screen     | URL               |
+| ---------- | ----------------- |
+| Start      | `/?post=start`    |
+| Finish     | `/?post=finish`   |
+| Results    | `/?post=results`  |
+| Scoreboard | `/board`          |
 
-## Deploying to the VPS (www.imoca.tech/speedrun)
+## Deploying (Dokploy)
 
-The app is path-agnostic: it uses relative URLs, so it runs under any sub-path
-as long as it is reached with a trailing slash (the nginx snippet handles that).
+Production runs on a Hostinger VPS managed by Dokploy, behind Traefik, at
+`https://imoca.tech/speedrun/`. Dokploy builds this repo and Traefik terminates
+TLS and routes the sub-path.
 
-```bash
-# from this folder
-scp -r server.js package.json public deploy root@VPS:/opt/race-timer/
-ssh root@VPS 'bash /opt/race-timer/deploy/install.sh'
-```
+Dokploy application settings:
 
-Then add the two blocks from `deploy/nginx-speedrun.conf` to the existing
-`www.imoca.tech` server block and reload nginx:
+| Setting        | Value                                    |
+| -------------- | ---------------------------------------- |
+| Source         | this GitHub repo, branch `main`          |
+| Domain host    | `imoca.tech`                             |
+| Domain path    | `/speedrun`                              |
+| Strip Path     | off (the server handles the prefix)      |
+| Container Port | `8090`                                   |
+| Volume         | mount on `/app/data`                     |
 
-```bash
-nginx -t && systemctl reload nginx
-```
-
-The service listens on `127.0.0.1:8090` only — nginx is the only way in, and the
-page is set to `noindex, nofollow` so it stays out of search engines.
-
-The snippet enables HTTP basic auth, so create the password file **before**
-reloading nginx or it will refuse to start:
+Environment:
 
 ```bash
-apt-get install -y apache2-utils
-htpasswd -c /etc/nginx/.htpasswd-speedrun timing
+PORT=8090
+BASE_PATH=/speedrun
+AUTH_USER=timing
+AUTH_PASS=...
+PUBLIC_BOARD=1        # optional: opens /speedrun/board without the password
 ```
 
-Both posts then sign in once with the same `timing` account. Once entered, the
-browser keeps sending the credentials, including on the live stream — nothing
-re-prompts mid-race. On iOS, adding the page to the home screen may ask for it
-once more the first time it opens.
+The prefix is handled defensively: the server strips `BASE_PATH` when it is
+present and serves the plain path when the proxy already removed it, so it works
+whether or not Strip Path is on.
 
-Updating later:
+**The volume is the one setting that cannot be fixed after the fact** — without
+it, a redeploy wipes every recorded time. The startup banner in the logs
+confirms it:
 
-```bash
-scp -r server.js public root@VPS:/opt/race-timer/
-ssh root@VPS 'systemctl restart race-timer'
+```
+Data dir    : /app/data
+Persistence : ok
 ```
 
-State survives the restart (`/opt/race-timer/data/state.json`).
+`Persistence : BROKEN` means the directory is mounted but not writable.
+
+Deploying an update is a `git push` followed by Redeploy in Dokploy.
 
 ## On the day
 
@@ -105,7 +124,8 @@ State survives the restart (`/opt/race-timer/data/state.json`).
    `/speedrun/?post=finish` on the finish-line phone.
 3. Check the header badge says **SYNCED** on both.
 4. Time the runs. Results update live on any third screen.
-5. **Export CSV** at the end.
+5. Show `/speedrun/board` on any spare screen for the competitors.
+6. **Export CSV** at the end.
 
 Times are recorded and displayed to a tenth of a second, which matches what a
 finger on a screen can actually resolve. A run can be corrected afterwards from
@@ -117,9 +137,10 @@ cancel a run so it no longer counts, or delete it.
 ```
 server.js            Node server, no dependencies: state, live stream, API
 public/index.html    Page shell
-public/app.js        The whole UI: clock sync, offline queue, four screens
+public/app.js        The whole UI: clock sync, offline queue, five screens
 public/style.css     Mobile-first dark theme
+public/logos/        Scoreboard logos (see the README there)
 data/state.json      Current state (written atomically)
 data/events.jsonl    Append-only log of every action ever received
-deploy/              systemd unit, nginx snippet, install script
+deploy/              systemd unit + nginx snippet (only for a host without Dokploy)
 ```

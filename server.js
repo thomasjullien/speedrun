@@ -30,6 +30,23 @@ const BASE_PATH = (function () {
 // Optional shared password. Unset (the default) leaves the app open.
 const AUTH_USER = process.env.AUTH_USER || '';
 const AUTH_PASS = process.env.AUTH_PASS || '';
+
+// When on, the scoreboard at /board is readable without the password.
+// Only reads are ever exempt - recording a time always needs the password.
+const PUBLIC_BOARD = /^(1|true|yes|on)$/i.test(String(process.env.PUBLIC_BOARD || ''));
+
+// The exact GET routes the scoreboard needs, and nothing more.
+const BOARD_ROUTES = {
+  '/board': 1, '/board/': 1,
+  '/style.css': 1, '/app.js': 1,
+  '/api/state': 1, '/api/stream': 1, '/api/time': 1,
+};
+
+function isPublicBoardRequest(req, p) {
+  if (!PUBLIC_BOARD || req.method !== 'GET') return false;
+  // The logos the scoreboard displays have to load too.
+  return BOARD_ROUTES[p] === 1 || p.indexOf('/logos/') === 0;
+}
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -442,7 +459,8 @@ const server = http.createServer(function (req, res) {
     return res.end('ok');
   }
 
-  if (!authorised(req, res)) return;
+  // Writes always need the password, so an open scoreboard can still only read.
+  if (!isPublicBoardRequest(req, p) && !authorised(req, res)) return;
 
   if (p === '/api/time') return sendJson(res, 200, { now: Date.now() });
 
@@ -478,6 +496,15 @@ const server = http.createServer(function (req, res) {
   }
 
   if (p.indexOf('/api/') === 0) return sendJson(res, 404, { error: 'Unknown endpoint' });
+
+  // The scoreboard is the same page in a read-only mode. Keep a single
+  // canonical URL without a trailing slash: the page resolves its API calls
+  // relative to the directory, and '/board/' would push them one level too deep.
+  if (p === '/board/') {
+    res.writeHead(301, { Location: BASE_PATH + '/board' });
+    return res.end();
+  }
+  if (p === '/board') return serveStatic(req, res, '/');
 
   return serveStatic(req, res, p);
 });
