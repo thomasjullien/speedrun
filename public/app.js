@@ -825,60 +825,65 @@
     var live = runningRuns(s);
     var out = [];
 
+    // Tell the stylesheet how many rows it has to fit on one screen.
+    out.push('<div class="tor" style="--n:' + Math.max(4, rows.length + live.length) + '">');
+
     out.push(
-      '<div class="board-head">' +
-        '<img class="board-logo mark" src="logos/imoca.png" alt="IMOCA"' +
-          ' onerror="this.remove()">' +
-        '<div class="board-title"><h1>' + esc(s.eventName || 'Race day') + '</h1>' +
-          '<div class="board-sub"><span class="live-dot"></span>' +
-          'Live &middot; best run per boat</div></div>' +
-        // Dark navy wordmark on a transparent background: rendered white so it
-        // reads on the dark board. Swap in the official reversed file to drop
-        // the filter (see public/logos/README.md).
-        '<img class="board-logo wordmark reversed" src="logos/ocean-race.png"' +
+      '<div class="tor-head tor-pad">' +
+        '<img class="tor-logo mark" src="logos/imoca.png" alt="IMOCA" onerror="this.remove()">' +
+        '<div class="tor-spacer"></div>' +
+        '<span class="tor-live"><i></i>Live</span>' +
+        '<div class="tor-spacer"></div>' +
+        '<img class="tor-logo wordmark reversed" src="logos/ocean-race.png"' +
           ' alt="The Ocean Race" onerror="this.remove()">' +
       '</div>'
     );
 
+    out.push('<h1 class="tor-title tor-pad">' + esc(s.eventName || 'Scoreboard') + '</h1>');
+
     if (live.length) {
-      out.push('<div class="board-section">On course</div><div class="board-live">');
+      out.push('<div class="tor-section tor-pad">On course</div>');
+      out.push('<div class="tor-rows tor-pad">');
       live.forEach(function (r) {
         out.push(
-          '<div class="board-live-card"' + colorStyle(boatColor(s, r.boatId)) + '>' +
-            '<div class="bl-name">' + esc(boatLabel(s, r.boatId)) + '</div>' +
-            '<div class="bl-time mono" data-live-start="' + r.startAt + '">0:00.0</div>' +
+          '<div class="tor-lrow"' + colorStyle(boatColor(s, r.boatId)) + '>' +
+            '<span class="tr-colour"></span>' +
+            '<span class="tr-name">' + esc(boatLabel(s, r.boatId)) + '</span>' +
+            '<span class="tr-time mono" data-live-start="' + r.startAt + '">0:00.0</span>' +
           '</div>'
         );
       });
       out.push('</div>');
     }
 
-    out.push('<div class="board-section">Standings</div>');
+    out.push('<div class="tor-section tor-pad">Standings</div>');
 
     if (!rows.length) {
-      out.push('<div class="empty">No boats yet.</div>');
+      out.push('<div class="empty">No boats yet.</div></div>');
       return out.join('');
     }
 
-    out.push('<div class="board-table">');
+    out.push('<div class="tor-rows tor-pad">');
     rows.forEach(function (r) {
+      var cls = r.pos === 1 ? 'leader' : (r.pos ? '' : 'unranked');
       out.push(
-        '<div class="board-row ' + (r.pos === 1 ? 'leader' : '') + '"' +
-          colorStyle(r.boat.color || 'transparent') + '>' +
-          '<div class="bp">' + (r.pos || '&ndash;') + '</div>' +
-          '<div class="bn">' + esc(r.boat.name) +
-            (r.boat.sail ? '<span class="bs">' + esc(r.boat.sail) + '</span>' : '') + '</div>' +
-          // Attempts used, cancelled runs excluded: shows at a glance who still
-          // has a try in hand.
-          '<div class="brn mono"><b>' + r.attempts + '</b>/' + s.maxAttempts +
-            '<span class="lbl"> runs</span></div>' +
-          '<div class="bt mono">' + (r.ms != null ? fmtDur(r.ms) : '&ndash;') + '</div>' +
-          '<div class="bg mono">' + (r.gap != null ? '+' + fmtDur(r.gap) : '') + '</div>' +
+        '<div class="tor-row ' + cls + '"' + colorStyle(r.boat.color || 'transparent') + '>' +
+          '<div class="tr-pos">' + (r.pos || '&ndash;') + '</div>' +
+          '<div class="tr-bar">' +
+            '<span class="tr-colour"></span>' +
+            '<span class="tr-name">' + esc(r.boat.name) +
+              (r.boat.sail ? '<span class="tr-sail">' + esc(r.boat.sail) + '</span>' : '') +
+            '</span>' +
+            '<span class="tr-runs">' + r.attempts + '/' + s.maxAttempts + ' runs</span>' +
+            '<span class="tr-time mono">' + (r.ms != null ? fmtDur(r.ms) : '&ndash;') + '</span>' +
+            '<span class="tr-gap mono">' + (r.gap != null ? '+' + fmtDur(r.gap) : '') + '</span>' +
+          '</div>' +
         '</div>'
       );
     });
     out.push('</div>');
 
+    out.push('</div>');
     return out.join('');
   }
 

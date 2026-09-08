@@ -44,9 +44,16 @@ afterwards, with no penalty on the recorded time.
 
 ## The scoreboard
 
-`/board` is a read-only display for a spectator screen: the event name between
-the two logos, the boats currently on course with their running clocks, and the
-standings. No app chrome, no navigation, no control of any kind.
+`/board` is a read-only display for a spectator screen: a navy band carrying the
+logos, the event name set large in red, the boats currently on course with their
+running clocks, and the standings. No app chrome, no navigation, no control of
+any kind. The look follows The Ocean Race scoreboard - white ground, navy
+blocks, red reserved for the leader, heavy uppercase type.
+
+It is built for a television. Row height comes from a single `--row-h` variable
+derived from how many rows there are to show, and every type size is a fraction
+of it, so a fleet of six and a fleet of fourteen both fill one screen without
+scrolling. Verified from 7 to 14 rows at 1600x900.
 
 Read-only is enforced by the server, not just hidden in the page. With
 `PUBLIC_BOARD=1`, exactly these are readable without the password:
