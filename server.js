@@ -44,12 +44,20 @@ const AUTH_PASS = process.env.AUTH_PASS || '';
 // Only reads are ever exempt - recording a time always needs the password.
 const PUBLIC_BOARD = /^(1|true|yes|on|open|public)$/i.test(setting('PUBLIC_BOARD'));
 
-// The exact GET routes the scoreboard needs, and nothing more.
+// The exact GET routes the scoreboard and the broadcast overlays need, and
+// nothing more.
 const BOARD_ROUTES = {
   '/board': 1, '/board/': 1,
+  '/overlay-standings': 1, '/overlay-standings/': 1,
+  '/overlay-oncourse': 1, '/overlay-oncourse/': 1,
   '/style.css': 1, '/app.js': 1,
   '/api/state': 1, '/api/stream': 1, '/api/time': 1,
 };
+
+// Pages that are the app itself in another guise, all served from index.html.
+// Deliberately one path segment deep: the page loads app.js and style.css by
+// relative URL, so a nested path would resolve them against the wrong folder.
+const PAGE_ROUTES = ['/board', '/overlay-standings', '/overlay-oncourse'];
 
 function isPublicBoardRequest(req, p) {
   if (!PUBLIC_BOARD || req.method !== 'GET') return false;
@@ -510,14 +518,18 @@ const server = http.createServer(function (req, res) {
 
   if (p.indexOf('/api/') === 0) return sendJson(res, 404, { error: 'Unknown endpoint' });
 
-  // The scoreboard is the same page in a read-only mode. Keep a single
-  // canonical URL without a trailing slash: the page resolves its API calls
-  // relative to the directory, and '/board/' would push them one level too deep.
-  if (p === '/board/') {
-    res.writeHead(301, { Location: BASE_PATH + '/board' });
-    return res.end();
+  // The scoreboard and the overlays are the same page in another mode. Keep a
+  // single canonical URL without a trailing slash: the page resolves its API
+  // calls relative to its own path, and a trailing slash would push them one
+  // level too deep.
+  for (let i = 0; i < PAGE_ROUTES.length; i++) {
+    const route = PAGE_ROUTES[i];
+    if (p === route + '/') {
+      res.writeHead(301, { Location: BASE_PATH + route });
+      return res.end();
+    }
+    if (p === route) return serveStatic(req, res, '/');
   }
-  if (p === '/board') return serveStatic(req, res, '/');
 
   return serveStatic(req, res, p);
 });
@@ -550,6 +562,8 @@ server.listen(PORT, function () {
   console.log('  Password    : ' + (AUTH_USER ? 'on (user ' + AUTH_USER + ')' : 'off'));
   console.log('  Scoreboard  : ' + BASE_PATH + '/board  ' +
     (PUBLIC_BOARD ? '(open to all, read-only)' : '(password required)'));
+  console.log('  TV overlays : ' + BASE_PATH + '/overlay-standings');
+  console.log('                ' + BASE_PATH + '/overlay-oncourse');
   // Printed as an absolute path: this is the exact path to mount a volume on.
   console.log('  Data dir    : ' + DATA_DIR + (writable ? '' : '  <-- NOT WRITABLE'));
   console.log('  Persistence : ' + (writable ? 'ok' : 'BROKEN - times will be lost'));

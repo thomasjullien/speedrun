@@ -790,3 +790,118 @@ body.board-mode .empty {
   .tr-runs { display: none; }
   .tr-gap { width: 52px; }
 }
+
+/* ---------------------------------------------------------- TV overlays */
+/*
+ * Pages for a vMix / OBS browser source: transparent ground, no chrome, no
+ * scrollbars. Text always sits on an opaque bar rather than straight on the
+ * video, which is the difference between legible and not over moving water.
+ */
+
+/* The root element carries the app's dark background, so it has to be cleared
+   too - otherwise the browser source composites an opaque rectangle. */
+html.overlay-mode,
+body.overlay-mode,
+body.overlay-mode > main {
+  background: transparent;
+  overflow: hidden;
+}
+body.overlay-mode > header,
+body.overlay-mode #toast,
+body.overlay-mode #modal { display: none !important; }
+
+body.overlay-mode > main {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.ov {
+  --ov-row: calc(54px * var(--ov-scale, 1));
+  --ov-navy: #10205f;
+  --ov-red: #e4003c;
+  --ov-grey: #eef0f2;
+  display: inline-flex;
+  flex-direction: column;
+  margin: calc(18px * var(--ov-scale, 1));
+  /* Lifts the panel off the video without a box around it. */
+  filter: drop-shadow(0 calc(4px * var(--ov-scale, 1)) calc(16px * var(--ov-scale, 1)) rgba(0, 0, 0, 0.5));
+}
+.ov.ov-right { float: right; }
+
+.ov-head {
+  background: var(--ov-navy);
+  color: #fff;
+  font-size: calc(var(--ov-row) * 0.31);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: calc(var(--ov-row) * 0.16) calc(var(--ov-row) * 0.3);
+}
+
+.ov-rows { display: flex; flex-direction: column; gap: calc(var(--ov-row) * 0.06); }
+
+.ov-row { display: flex; align-items: stretch; height: var(--ov-row); }
+
+.ov-pos {
+  flex: none;
+  width: var(--ov-row);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ov-navy);
+  color: #fff;
+  font-size: calc(var(--ov-row) * 0.5);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+.ov-row.leader .ov-pos { background: var(--ov-red); }
+
+.ov-bar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ov-row) * 0.28);
+  padding: 0 calc(var(--ov-row) * 0.3);
+  background: var(--ov-grey);
+  color: var(--ov-navy);
+}
+.ov-row.leader .ov-bar { background: var(--ov-navy); color: #fff; }
+.ov-row.live .ov-bar { background: var(--ov-navy); color: #fff; }
+
+.ov-colour {
+  flex: none;
+  width: calc(var(--ov-row) * 0.11);
+  align-self: stretch;
+  margin: calc(var(--ov-row) * 0.16) 0;
+  background: var(--boat, transparent);
+}
+
+.ov-name {
+  flex: 1;
+  min-width: calc(var(--ov-row) * 3.4);
+  font-size: calc(var(--ov-row) * 0.38);
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ov-time {
+  flex: none;
+  font-size: calc(var(--ov-row) * 0.44);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.ov-row.live .ov-time { color: #ff4d6d; }
+
+.ov-gap {
+  flex: none;
+  min-width: calc(var(--ov-row) * 1.5);
+  text-align: right;
+  font-size: calc(var(--ov-row) * 0.24);
+  font-weight: 700;
+  opacity: 0.62;
+}

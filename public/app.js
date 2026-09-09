@@ -25,11 +25,23 @@
   // Credentials are stripped: someone will bookmark the page as
   // https://user:pass@host/speedrun/ to skip the password prompt on a phone,
   // and fetch() refuses to build a request from a URL that carries them.
+  var PARAMS = new URLSearchParams(location.search);
+
+  // Alternative faces of the same app, each on its own path, one segment deep.
+  // The API lives at the application root, so that segment is stripped before
+  // resolving it: '/speedrun/overlay-standings' still calls '/speedrun/api/state'.
+  var PAGE_PATHS = /\/(board|overlay-[a-z]+)\/?$/;
+
   var API_BASE = (function () {
     try {
-      var u = new URL('.', location.href);
+      var u = new URL(location.href);
       u.username = '';
       u.password = '';
+      u.search = '';
+      u.hash = '';
+      var p = u.pathname.replace(PAGE_PATHS, '/');
+      if (!/\/$/.test(p)) p = p.replace(/[^/]*$/, '');
+      u.pathname = p;
       return u.href;
     } catch (e) {
       return './';
@@ -42,7 +54,18 @@
   // The server refuses every write from an unauthenticated visitor, so this is
   // not merely a hidden UI - the results genuinely cannot be altered from here.
   var BOARD_MODE = /\/board\/?$/.test(location.pathname) ||
-    new URLSearchParams(location.search).get('post') === 'board';
+    PARAMS.get('post') === 'board';
+
+  // Broadcast overlays: /overlay/standings and /overlay/oncourse. Transparent
+  // background, no chrome, meant to be dropped into vMix or OBS as a browser
+  // source and left running.
+  var OVERLAY = (function () {
+    var m = location.pathname.match(/\/overlay-([a-z]+)\/?$/);
+    var name = m ? m[1] : PARAMS.get('overlay');
+    return name === 'standings' || name === 'oncourse' ? name : null;
+  })();
+
+  var READ_ONLY = BOARD_MODE || !!OVERLAY;
 
   // ============================================================== utilities
 
@@ -491,6 +514,7 @@
     results: el('view-results'),
     setup: el('view-setup'),
     board: el('view-board'),
+    overlay: el('view-overlay'),
   };
 
   function renderNet() {
@@ -508,8 +532,8 @@
 
   function setView(next) {
     view = next;
-    // Never remember 'board': it would hijack the app on a later visit.
-    if (next !== 'board') {
+    // Never remember a display mode: it would hijack the app on a later visit.
+    if (next !== 'board' && next !== 'overlay') {
       try { localStorage.setItem(LS_VIEW, next); } catch (e) {}
     }
     Object.keys(views).forEach(function (k) {
@@ -532,7 +556,12 @@
     // Re-rendering under the user's fingers would drop focus mid-typing.
     var typing = document.activeElement && document.activeElement.tagName === 'INPUT';
 
-    if (view === 'board') views.board.innerHTML = htmlBoard(s);
+    if (view === 'overlay') {
+      views.overlay.innerHTML = OVERLAY === 'oncourse'
+        ? htmlOverlayOnCourse(s)
+        : htmlOverlayStandings(s);
+    }
+    else if (view === 'board') views.board.innerHTML = htmlBoard(s);
     else if (view === 'start') views.start.innerHTML = htmlStart(s);
     else if (view === 'finish') views.finish.innerHTML = htmlFinish(s);
     else if (view === 'results') views.results.innerHTML = htmlResults(s);
@@ -887,6 +916,78 @@
     return out.join('');
   }
 
+  // -------------------------------------------------------------- TV overlays
+  //
+  // Transparent pages for a vMix / OBS browser source. They carry no chrome and
+  // no controls, render nothing at all when there is nothing to show - an
+  // overlay left permanently on air must disappear by itself rather than sit
+  // there as an empty box - and take their size from query parameters so the
+  // operator can fit them without touching the code.
+  //
+  //   ?scale=1.4     everything larger
+  //   ?rows=5        cap the standings at five boats
+  //   ?align=right   hug the right edge instead of the left
+  //   ?title=0       drop the event-name strip
+
+  function overlayNum(name, fallback, min, max) {
+    var raw = parseFloat(PARAMS.get(name));
+    if (!isFinite(raw)) return fallback;
+    return Math.min(max, Math.max(min, raw));
+  }
+
+  function overlayShell(inner) {
+    var cls = 'ov' +
+      (PARAMS.get('align') === 'right' ? ' ov-right' : '') +
+      (PARAMS.get('title') === '0' ? ' ov-notitle' : '');
+    return '<div class="' + cls + '" style="--ov-scale:' +
+      overlayNum('scale', 1, 0.4, 4) + '">' + inner + '</div>';
+  }
+
+  function overlayTitle(s) {
+    if (PARAMS.get('title') === '0') return '';
+    return '<div class="ov-head">' + esc(s.eventName || 'Race') + '</div>';
+  }
+
+  function htmlOverlayStandings(s) {
+    var rows = ranking(s).filter(function (r) { return r.pos; });
+    if (!rows.length) return '';
+
+    var limit = overlayNum('rows', 8, 1, 30);
+    rows = rows.slice(0, limit);
+
+    var body = rows.map(function (r) {
+      return '<div class="ov-row' + (r.pos === 1 ? ' leader' : '') + '"' +
+        colorStyle(r.boat.color || 'transparent') + '>' +
+          '<div class="ov-pos">' + r.pos + '</div>' +
+          '<div class="ov-bar">' +
+            '<span class="ov-colour"></span>' +
+            '<span class="ov-name">' + esc(r.boat.name) + '</span>' +
+            '<span class="ov-time mono">' + fmtDur(r.ms) + '</span>' +
+            '<span class="ov-gap mono">' + (r.gap != null ? '+' + fmtDur(r.gap) : '') + '</span>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+
+    return overlayShell(overlayTitle(s) + '<div class="ov-rows">' + body + '</div>');
+  }
+
+  function htmlOverlayOnCourse(s) {
+    var live = runningRuns(s);
+    if (!live.length) return ''; // nothing on course: show nothing at all
+
+    var body = live.map(function (r) {
+      return '<div class="ov-row live"' + colorStyle(boatColor(s, r.boatId)) + '>' +
+          '<div class="ov-bar">' +
+            '<span class="ov-colour"></span>' +
+            '<span class="ov-name">' + esc(boatLabel(s, r.boatId)) + '</span>' +
+            '<span class="ov-time mono" data-live-start="' + r.startAt + '">0:00.0</span>' +
+          '</div>' +
+        '</div>';
+    }).join('');
+
+    return overlayShell(overlayTitle(s) + '<div class="ov-rows">' + body + '</div>');
+  }
+
   // ============================================================== live ticker
 
   // Only touch the DOM when the text actually changes: with nothing on course
@@ -1127,9 +1228,9 @@
   }
 
   document.addEventListener('click', function (e) {
-    // The scoreboard has no controls at all: belt and braces alongside the
-    // server-side rule that only the password can write.
-    if (BOARD_MODE) return;
+    // The scoreboard and the overlays carry no controls at all: belt and
+    // braces alongside the server-side rule that only the password can write.
+    if (READ_ONLY) return;
 
     var navBtn = e.target.closest('nav button');
     if (navBtn) return setView(navBtn.getAttribute('data-view'));
@@ -1263,10 +1364,14 @@
     var wanted = params.get('post') || params.get('view');
     var stored = null;
     try { stored = localStorage.getItem(LS_VIEW); } catch (e) {}
-    var initial = BOARD_MODE ? 'board' : (wanted || stored || 'start');
+    var initial = OVERLAY ? 'overlay' : BOARD_MODE ? 'board' : (wanted || stored || 'start');
     if (!views[initial]) initial = 'start';
 
     if (BOARD_MODE) document.body.classList.add('board-mode');
+    if (OVERLAY) {
+      document.body.classList.add('overlay-mode', 'ov-' + OVERLAY);
+      document.documentElement.classList.add('overlay-mode');
+    }
 
     fetch(api('api/state'), { cache: 'no-store' })
       .then(function (r) { return r.json(); })

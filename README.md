@@ -66,6 +66,39 @@ spectator with the link can watch the race but cannot alter a single time. Leave
 
 Logos live in `public/logos/` — see the README there.
 
+## TV overlays
+
+Two transparent pages, meant to be dropped into vMix or OBS as a browser source
+and left running. No integration work for the gallery: they paste a URL.
+
+    /overlay-standings    the ranking
+    /overlay-oncourse     the boats running right now, with live clocks
+
+Both are transparent (the root element too, or the source composites an opaque
+rectangle), carry no chrome and no controls, and never show a scrollbar. Text
+always sits on an opaque bar rather than straight on the video, which is the
+difference between legible and not over moving water.
+
+**They render nothing at all when there is nothing to show**, so the source can
+stay on air permanently: the on-course overlay is invisible between runs and
+reappears by itself the moment the start line taps a boat - no reload, no cue.
+
+Query parameters, so the operator can fit them without touching the code:
+
+| Parameter    | Effect                                        |
+| ------------ | --------------------------------------------- |
+| `?scale=1.4` | everything larger (0.4 to 4)                  |
+| `?rows=5`    | cap the standings at five boats               |
+| `?align=right` | hug the right edge instead of the left      |
+| `?title=0`   | drop the event-name strip                     |
+
+They sit behind the same `PUBLIC_BOARD` switch as the scoreboard: readable
+without the password when it is on, and writes are refused either way.
+
+Note the URLs are one path segment deep on purpose. The page loads `app.js` and
+`style.css` by relative URL, so a nested `/overlay/standings` would resolve them
+against the wrong folder and the page would silently stay blank.
+
 ## Running it locally
 
 ```bash
