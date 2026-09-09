@@ -923,3 +923,16 @@ body.overlay-mode > main {
   text-transform: uppercase;
   opacity: 0.62;
 }
+
+/* The top block of the timing screens holds either the MARK button or the
+   held-time banner. Both are the same height, so swapping one for the other
+   never shifts the tap targets underneath. */
+.fixed-top {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.fixed-top .top-btn,
+.fixed-top .capture-banner { margin-bottom: 0; }

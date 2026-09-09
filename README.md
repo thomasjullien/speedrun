@@ -12,7 +12,10 @@ for nothing until it is timed, and a cancelled one never counts. The finish post
 still labels the run underway as the next attempt - "run 2/3" while the second
 is being sailed - which is what the operator needs to see.
 
-- **Start post** — tap a boat as it crosses the start line.
+- **Start post** — tap a boat as it crosses the start line. The buttons never
+  move: boats going on course are listed *below* the grid, and the block above
+  it keeps one height whether it shows the MARK button or a held time. A target
+  that shifts under a thumb already on its way is a mistap waiting to happen.
 - **Finish post** — the boats currently on course are listed with their running
   clock; tap the one that crosses.
 - **Results** — best run per boat, gap to the leader, every run, CSV export.

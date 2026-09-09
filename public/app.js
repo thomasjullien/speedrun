@@ -578,15 +578,25 @@
 
   function htmlStart(s) {
     var out = [];
+    var live = runningRuns(s);
 
+    /*
+     * Layout rule for this screen: the boat buttons must never move.
+     *
+     * A boat going on course, or a held start time appearing, used to be
+     * inserted above the grid and pushed every button down - exactly when a
+     * thumb is on its way to one of them. So the top block is a fixed height
+     * whichever of the two it shows, and the on-course list goes underneath
+     * the grid, where it can grow without disturbing anything.
+     */
+    out.push('<div class="fixed-top">');
     if (capture.start) {
       out.push(
         '<div class="capture-banner">' +
           '<div><div class="lbl">Start time held</div>' +
           '<div class="val mono">' + fmtTod(capture.start, true) + '</div></div>' +
           '<button data-act="clear-capture" data-line="start">Discard</button>' +
-        '</div>' +
-        '<div class="section-title">Which boat crossed?</div>'
+        '</div>'
       );
     } else {
       out.push(
@@ -595,23 +605,11 @@
         '</button>'
       );
     }
+    out.push('</div>');
 
-    var live = runningRuns(s);
-    if (live.length) {
-      out.push('<div class="section-title">On course (' + live.length + ')</div>');
-      live.forEach(function (r) {
-        out.push(
-          '<div class="run-card"' + colorStyle(boatColor(s, r.boatId)) + '>' +
-            '<div class="who"><div class="name">' + esc(boatLabel(s, r.boatId)) + '</div>' +
-            '<div class="sub">started ' + fmtTod(r.startAt, true) + '</div></div>' +
-            '<div class="elapsed mono" data-live-start="' + r.startAt + '">0:00.0</div>' +
-            '<button class="act" data-act="cancel-start" data-run="' + r.id + '">UNDO</button>' +
-          '</div>'
-        );
-      });
-    }
-
-    out.push('<div class="section-title">Tap a boat as it crosses the line</div>');
+    out.push('<div class="section-title">' +
+      (capture.start ? 'Which boat crossed?' : 'Tap a boat as it crosses the line') +
+      '</div>');
 
     if (!s.boats.length) {
       out.push('<div class="empty">No boats yet.<br>Add them in <b>Setup</b>.</div>');
@@ -641,6 +639,22 @@
       );
     });
     out.push('</div>');
+
+    // Below the grid: it may appear, grow and vanish without moving a button.
+    if (live.length) {
+      out.push('<div class="section-title">On course (' + live.length + ')</div>');
+      live.forEach(function (r) {
+        out.push(
+          '<div class="run-card"' + colorStyle(boatColor(s, r.boatId)) + '>' +
+            '<div class="who"><div class="name">' + esc(boatLabel(s, r.boatId)) + '</div>' +
+            '<div class="sub">started ' + fmtTod(r.startAt, true) + '</div></div>' +
+            '<div class="elapsed mono" data-live-start="' + r.startAt + '">0:00.0</div>' +
+            '<button class="act" data-act="cancel-start" data-run="' + r.id + '">UNDO</button>' +
+          '</div>'
+        );
+      });
+    }
+
     return out.join('');
   }
 
@@ -650,14 +664,16 @@
     var out = [];
     var live = runningRuns(s);
 
+    // Same fixed-height top block as the start post: the cards below are the
+    // tap targets, and holding a finish time must not shift them.
+    out.push('<div class="fixed-top">');
     if (capture.finish) {
       out.push(
         '<div class="capture-banner">' +
           '<div><div class="lbl">Finish time held</div>' +
           '<div class="val mono">' + fmtTod(capture.finish, true) + '</div></div>' +
           '<button data-act="clear-capture" data-line="finish">Discard</button>' +
-        '</div>' +
-        '<div class="section-title">Which boat crossed?</div>'
+        '</div>'
       );
     } else {
       out.push(
@@ -666,11 +682,14 @@
         '</button>'
       );
     }
+    out.push('</div>');
 
     if (!live.length) {
       out.push('<div class="empty">No boat on course.<br>Times appear here as the start line sends them.</div>');
     } else {
-      if (!capture.finish) out.push('<div class="section-title">On course (' + live.length + ')</div>');
+      out.push('<div class="section-title">' +
+        (capture.finish ? 'Which boat crossed?' : 'On course (' + live.length + ')') +
+        '</div>');
       live.forEach(function (r) {
         // The run underway is the next attempt, not yet a used one.
         var attempt = Math.min(s.maxAttempts, attemptsUsed(s, r.boatId) + 1);
