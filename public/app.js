@@ -347,9 +347,13 @@
     return s.runs.filter(function (r) { return r.boatId === id; });
   }
 
-  /** A cancelled run does not burn an attempt. */
+  /**
+   * Only a run carried through to the finish line burns an attempt. A boat may
+   * abandon a run and set off again as often as it likes, so a run in progress
+   * counts for nothing until it is timed; a cancelled one never counts.
+   */
   function attemptsUsed(s, id) {
-    return runsOfBoat(s, id).filter(function (r) { return r.status !== 'cancelled'; }).length;
+    return runsOfBoat(s, id).filter(function (r) { return r.status === 'done'; }).length;
   }
 
   function attemptsLeft(s, id) {
@@ -668,12 +672,13 @@
     } else {
       if (!capture.finish) out.push('<div class="section-title">On course (' + live.length + ')</div>');
       live.forEach(function (r) {
-        var used = runsOfBoat(s, r.boatId).filter(function (x) { return x.status !== 'cancelled'; }).length;
+        // The run underway is the next attempt, not yet a used one.
+        var attempt = Math.min(s.maxAttempts, attemptsUsed(s, r.boatId) + 1);
         out.push(
           '<button class="run-card finish" data-act="finish-run" data-run="' + r.id + '"' +
             colorStyle(boatColor(s, r.boatId)) + '>' +
             '<div class="who"><div class="name">' + esc(boatLabel(s, r.boatId)) + '</div>' +
-            '<div class="sub">started ' + fmtTod(r.startAt, true) + ' &middot; run ' + used + '/' + s.maxAttempts + '</div></div>' +
+            '<div class="sub">started ' + fmtTod(r.startAt, true) + ' &middot; run ' + attempt + '/' + s.maxAttempts + '</div></div>' +
             '<div class="elapsed mono" data-live-start="' + r.startAt + '">0:00.0</div>' +
             '<span class="cta">Finish</span>' +
           '</button>'

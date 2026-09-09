@@ -6,6 +6,12 @@ manned by **two different people on two different phones**.
 Each boat starts when it wants, gets a limited number of attempts, and is ranked
 on its best run.
 
+**Only a run carried through to the finish line burns an attempt.** A boat may
+abandon a run and set off again as often as it likes: a run in progress counts
+for nothing until it is timed, and a cancelled one never counts. The finish post
+still labels the run underway as the next attempt - "run 2/3" while the second
+is being sailed - which is what the operator needs to see.
+
 - **Start post** — tap a boat as it crosses the start line.
 - **Finish post** — the boats currently on course are listed with their running
   clock; tap the one that crosses.
