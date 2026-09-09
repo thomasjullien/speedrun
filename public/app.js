@@ -949,20 +949,23 @@
   }
 
   function htmlOverlayStandings(s) {
-    var rows = ranking(s).filter(function (r) { return r.pos; });
+    // Every boat stays on screen, including those yet to post a time: the
+    // gallery wants a stable list that does not reshuffle its own height.
+    var rows = ranking(s);
     if (!rows.length) return '';
 
-    var limit = overlayNum('rows', 8, 1, 30);
-    rows = rows.slice(0, limit);
+    rows = rows.slice(0, overlayNum('rows', 99, 1, 99));
 
     var body = rows.map(function (r) {
-      return '<div class="ov-row' + (r.pos === 1 ? ' leader' : '') + '"' +
+      var cls = r.pos === 1 ? ' leader' : (r.pos ? '' : ' unranked');
+      return '<div class="ov-row' + cls + '"' +
         colorStyle(r.boat.color || 'transparent') + '>' +
-          '<div class="ov-pos">' + r.pos + '</div>' +
+          '<div class="ov-pos">' + (r.pos || '&ndash;') + '</div>' +
           '<div class="ov-bar">' +
             '<span class="ov-colour"></span>' +
             '<span class="ov-name">' + esc(r.boat.name) + '</span>' +
-            '<span class="ov-time mono">' + fmtDur(r.ms) + '</span>' +
+            '<span class="ov-runs">' + r.attempts + '/' + s.maxAttempts + ' runs</span>' +
+            '<span class="ov-time mono">' + (r.ms != null ? fmtDur(r.ms) : '&ndash;') + '</span>' +
             '<span class="ov-gap mono">' + (r.gap != null ? '+' + fmtDur(r.gap) : '') + '</span>' +
           '</div>' +
         '</div>';

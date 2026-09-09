@@ -891,6 +891,9 @@ body.overlay-mode > main {
 
 .ov-time {
   flex: none;
+  /* Fixed width so the times line up down the column, whatever the name. */
+  min-width: calc(var(--ov-row) * 2.15);
+  text-align: right;
   font-size: calc(var(--ov-row) * 0.44);
   font-weight: 900;
   letter-spacing: -0.02em;
@@ -903,5 +906,20 @@ body.overlay-mode > main {
   text-align: right;
   font-size: calc(var(--ov-row) * 0.24);
   font-weight: 700;
+  opacity: 0.62;
+}
+
+/* Boats with no time yet stay on the overlay, muted rather than removed. */
+.ov-row.unranked .ov-pos { background: #9aa3b8; }
+.ov-row.unranked .ov-bar { background: #dfe3ea; color: #79839a; }
+
+.ov-runs {
+  flex: none;
+  min-width: calc(var(--ov-row) * 1.7);
+  text-align: right;
+  font-size: calc(var(--ov-row) * 0.24);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   opacity: 0.62;
 }

@@ -71,8 +71,13 @@ Logos live in `public/logos/` — see the README there.
 Two transparent pages, meant to be dropped into vMix or OBS as a browser source
 and left running. No integration work for the gallery: they paste a URL.
 
-    /overlay-standings    the ranking
+    /overlay-standings    the ranking, every boat, with attempts used
     /overlay-oncourse     the boats running right now, with live clocks
+
+The standings overlay keeps every boat on screen, including those yet to post a
+time - they sit at the bottom, muted, showing their attempts used. The list
+therefore keeps a constant height instead of growing through the session, which
+is what a gallery needs from a source it has already framed.
 
 Both are transparent (the root element too, or the source composites an opaque
 rectangle), carry no chrome and no controls, and never show a scrollbar. Text
@@ -88,7 +93,7 @@ Query parameters, so the operator can fit them without touching the code:
 | Parameter    | Effect                                        |
 | ------------ | --------------------------------------------- |
 | `?scale=1.4` | everything larger (0.4 to 4)                  |
-| `?rows=5`    | cap the standings at five boats               |
+| `?rows=5`    | cap the standings at five boats (default: all) |
 | `?align=right` | hug the right edge instead of the left      |
 | `?title=0`   | drop the event-name strip                     |
 
