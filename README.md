@@ -68,6 +68,7 @@ Read-only is enforced by the server, not just hidden in the page. With
 `PUBLIC_BOARD=1`, exactly these are readable without the password:
 
     /board   /app.js   /style.css   /logos/*   /api/state   /api/stream   /api/time
+    /overlay-standings   /overlay-oncourse   /api/live   /api/live/stream
 
 Everything else still demands it, and **`POST /api/action` always does** — so a
 spectator with the link can watch the race but cannot alter a single time. Leave
@@ -112,6 +113,41 @@ without the password when it is on, and writes are refused either way.
 Note the URLs are one path segment deep on purpose. The page loads `app.js` and
 `style.css` by relative URL, so a nested `/overlay/standings` would resolve them
 against the wrong folder and the page would silently stay blank.
+
+## Live data feed for TV graphics
+
+For a graphics system that builds its own titles (vMix data sources, Singular,
+CasparCG, a custom HTML template...), the server hands over the raw data,
+already worked out - the ranking with its tie-breaks, the gaps, the running
+clocks - so the graphics side only has to place fields.
+
+    /api/live            JSON snapshot, fetch it as often as you like (poll)
+    /api/live/stream     the same object pushed over Server-Sent Events on
+                         every change, and every second while a boat is on course
+
+Every time comes twice: in milliseconds (`bestMs`, `gapMs`, `elapsedMs`...) and
+as display text (`best: "0:58.3"`, `gap: "+6.7"`, `elapsed: "0:21.4"`).
+
+```
+event, maxAttempts, serverTime, rev, updatedAt
+leader        the standings row in first place, or null
+standings[]   every boat, ranked: pos (null until it has a time), name, sail,
+              color, best/bestMs, gap/gapMs, tied, attempts ("1/3"),
+              attemptsUsed, attemptsLeft, onCourse, times[]/timesMs[]
+onCourse[]    boats running now, first started first: name, sail, color,
+              startAt, elapsed/elapsedMs, attempt, attemptLabel ("2/3"),
+              currentPos
+lastFinish    the latest timed run: name, time/timeMs, finishAt,
+              personalBest, pos, gap/gapMs to the leader - or null
+```
+
+`elapsed` is computed when the answer is sent. A template that animates its own
+clock should count from `startAt`, which is in server time (`serverTime` gives
+the offset to apply against the local clock).
+
+The feed is read-only and sent with `Access-Control-Allow-Origin: *`, so a page
+served from elsewhere can fetch it. It sits behind the same `PUBLIC_BOARD`
+switch as the scoreboard: open when it is on, password-protected otherwise.
 
 ## Running it locally
 

@@ -52,6 +52,7 @@ const BOARD_ROUTES = {
   '/overlay-oncourse': 1, '/overlay-oncourse/': 1,
   '/style.css': 1, '/app.js': 1,
   '/api/state': 1, '/api/stream': 1, '/api/time': 1,
+  '/api/live': 1, '/api/live/stream': 1,
 };
 
 // Pages that are the app itself in another guise, all served from index.html.
@@ -156,6 +157,9 @@ function broadcast() {
 setInterval(function () {
   for (const res of clients) {
     try { res.write(': ping\n\n'); } catch (e) { clients.delete(res); }
+  }
+  for (const res of liveClients) {
+    try { res.write(': ping\n\n'); } catch (e) { liveClients.delete(res); }
   }
 }, 20000).unref();
 
@@ -373,9 +377,186 @@ function handleAction(action) {
     logEvent({ at: Date.now(), action: action });
     saveState();
     broadcast();
+    broadcastLive();
   }
   return result;
 }
+
+// ---------------------------------------------------------------- live feed (TV graphics)
+
+/**
+ * The raw data a broadcast graphics system needs, already worked out: the
+ * standings, the boats on course and the last finish. Graphics tools (vMix
+ * data sources, Singular, CasparCG templates...) cannot run the ranking
+ * themselves, so the server does it and hands over plain fields, each time
+ * both in milliseconds and as display text.
+ *
+ * The ranking mirrors ranking() in public/app.js - keep the two in step.
+ */
+
+function pad2(n) {
+  const s = String(Math.floor(Math.abs(n)));
+  return s.length < 2 ? '0' + s : s;
+}
+
+/** Duration as m:ss.t (or h:mm:ss.t past the hour), as the app shows it. */
+function fmtDur(ms) {
+  if (ms == null || !Number.isFinite(ms)) return '';
+  const t = Math.abs(ms);
+  const tenths = Math.floor(t / 100) % 10;
+  const total = Math.floor(t / 1000);
+  const s = total % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const body = h > 0 ? h + ':' + pad2(m) + ':' + pad2(s) : m + ':' + pad2(s);
+  return (ms < 0 ? '-' : '') + body + '.' + tenths;
+}
+
+/** Gap to the leader: +4.3 under a minute, +1:04.3 beyond. */
+function fmtGap(ms) {
+  if (ms == null) return '';
+  if (ms < 60000) return '+' + Math.floor(ms / 1000) + '.' + (Math.floor(ms / 100) % 10);
+  return '+' + fmtDur(ms);
+}
+
+function runDuration(r) {
+  return r.status === 'done' && r.finishAt && r.startAt ? r.finishAt - r.startAt : null;
+}
+
+function boatFields(b) {
+  return { boatId: b.id, name: b.name, sail: b.sail || '', color: b.color };
+}
+
+function liveFeed() {
+  const now = Date.now();
+  const max = state.maxAttempts;
+
+  const rows = state.boats.map(function (b) {
+    const runs = state.runs.filter(function (r) { return r.boatId === b.id; });
+    const times = runs.map(runDuration)
+      .filter(function (d) { return d != null; })
+      .sort(function (x, y) { return x - y; });
+    return {
+      boat: b,
+      times: times,
+      used: runs.filter(function (r) { return r.status === 'done'; }).length,
+      running: runs.some(function (r) { return r.status === 'running'; }),
+    };
+  });
+
+  // Level on the best run: the second best decides, then the third... A boat
+  // with no further time loses, which also sends boats with none to the bottom.
+  rows.sort(function (a, b) {
+    const n = Math.max(a.times.length, b.times.length);
+    for (let i = 0; i < n; i++) {
+      const x = a.times[i];
+      const y = b.times[i];
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  });
+
+  const leader = rows.length && rows[0].times.length ? rows[0].times[0] : null;
+  const standings = rows.map(function (r, i) {
+    const best = r.times.length ? r.times[0] : null;
+    const prev = rows[i - 1];
+    const next = rows[i + 1];
+    const gap = best != null && leader != null && i > 0 ? best - leader : null;
+    return Object.assign(boatFields(r.boat), {
+      pos: best != null ? i + 1 : null,
+      bestMs: best,
+      best: fmtDur(best),
+      gapMs: gap,
+      gap: fmtGap(gap),
+      tied: best != null &&
+        ((prev && prev.times[0] === best) || (next && next.times[0] === best)),
+      attemptsUsed: r.used,
+      attemptsLeft: Math.max(0, max - r.used),
+      attempts: r.used + '/' + max,
+      onCourse: r.running,
+      timesMs: r.times,
+      times: r.times.map(fmtDur),
+    });
+  });
+
+  const posOf = {};
+  standings.forEach(function (s) { posOf[s.boatId] = s.pos; });
+
+  const onCourse = state.runs
+    .filter(function (r) { return r.status === 'running' && boatById(r.boatId); })
+    .sort(function (a, b) { return a.startAt - b.startAt; })
+    .map(function (r) {
+      const b = boatById(r.boatId);
+      const used = state.runs.filter(function (x) { return x.boatId === b.id && x.status === 'done'; }).length;
+      // The run underway is the next attempt, not yet a used one.
+      const attempt = Math.min(max, used + 1);
+      const elapsed = Math.max(0, now - r.startAt);
+      return Object.assign(boatFields(b), {
+        runId: r.id,
+        startAt: r.startAt,
+        elapsedMs: elapsed,
+        elapsed: fmtDur(elapsed),
+        attempt: attempt,
+        attemptLabel: attempt + '/' + max,
+        currentPos: posOf[b.id],
+      });
+    });
+
+  const last = state.runs
+    .filter(function (r) { return runDuration(r) != null && boatById(r.boatId); })
+    .sort(function (a, b) { return b.finishAt - a.finishAt; })[0];
+  let lastFinish = null;
+  if (last) {
+    const b = boatById(last.boatId);
+    const ms = runDuration(last);
+    const row = standings.find(function (s) { return s.boatId === b.id; });
+    lastFinish = Object.assign(boatFields(b), {
+      runId: last.id,
+      finishAt: last.finishAt,
+      timeMs: ms,
+      time: fmtDur(ms),
+      // Whether this run is the boat's best, and where that leaves it.
+      personalBest: row.bestMs === ms,
+      pos: row.pos,
+      // Against the current leader: 0 when this run is the new fastest.
+      gapMs: ms - leader,
+      gap: ms > leader ? fmtGap(ms - leader) : '',
+    });
+  }
+
+  return {
+    event: state.eventName,
+    maxAttempts: max,
+    serverTime: now,
+    rev: state.rev,
+    updatedAt: state.updatedAt,
+    leader: standings.length && standings[0].pos ? standings[0] : null,
+    standings: standings,
+    onCourse: onCourse,
+    lastFinish: lastFinish,
+  };
+}
+
+const liveClients = new Set();
+
+function broadcastLive() {
+  if (!liveClients.size) return;
+  const payload = 'data: ' + JSON.stringify(liveFeed()) + '\n\n';
+  for (const res of liveClients) {
+    try { res.write(payload); } catch (e) { liveClients.delete(res); }
+  }
+}
+
+// While a boat is on course its running clock changes every second, so keep
+// the feed ticking; between runs it only moves when something happens.
+setInterval(function () {
+  if (liveClients.size && state.runs.some(function (r) { return r.status === 'running'; })) {
+    broadcastLive();
+  }
+}, 1000).unref();
 
 // ---------------------------------------------------------------- HTTP
 
@@ -501,6 +682,28 @@ const server = http.createServer(function (req, res) {
     return;
   }
 
+  // Raw feed for TV graphics. Read-only data, so any origin may fetch it
+  // (a graphics page served from elsewhere, a vMix data source...).
+  if (p === '/api/live') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return sendJson(res, 200, liveFeed());
+  }
+
+  if (p === '/api/live/stream') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.write('retry: 2000\n\n');
+    res.write('data: ' + JSON.stringify(liveFeed()) + '\n\n');
+    liveClients.add(res);
+    req.on('close', function () { liveClients.delete(res); });
+    return;
+  }
+
   if (p === '/api/action' && req.method === 'POST') {
     return readBody(req).then(function (body) {
       const actions = Array.isArray(body.actions) ? body.actions : [body];
@@ -564,6 +767,8 @@ server.listen(PORT, function () {
     (PUBLIC_BOARD ? '(open to all, read-only)' : '(password required)'));
   console.log('  TV overlays : ' + BASE_PATH + '/overlay-standings');
   console.log('                ' + BASE_PATH + '/overlay-oncourse');
+  console.log('  Live feed   : ' + BASE_PATH + '/api/live  (JSON, poll)');
+  console.log('                ' + BASE_PATH + '/api/live/stream  (SSE, push)');
   // Printed as an absolute path: this is the exact path to mount a volume on.
   console.log('  Data dir    : ' + DATA_DIR + (writable ? '' : '  <-- NOT WRITABLE'));
   console.log('  Persistence : ' + (writable ? 'ok' : 'BROKEN - times will be lost'));
