@@ -424,7 +424,7 @@ function runDuration(r) {
 }
 
 function boatFields(b) {
-  return { boatId: b.id, name: b.name, sail: b.sail || '', color: b.color };
+  return { boatId: b.id, name: b.name };
 }
 
 function liveFeed() {
@@ -472,7 +472,7 @@ function liveFeed() {
       gapMs: gap,
       gap: fmtGap(gap),
       tied: best != null &&
-        ((prev && prev.times[0] === best) || (next && next.times[0] === best)),
+        (!!prev && prev.times[0] === best || !!next && next.times[0] === best),
       attemptsUsed: r.used,
       attemptsLeft: Math.max(0, max - r.used),
       attempts: r.used + '/' + max,

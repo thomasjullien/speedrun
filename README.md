@@ -131,13 +131,13 @@ as display text (`best: "0:58.3"`, `gap: "+6.7"`, `elapsed: "0:21.4"`).
 ```
 event, maxAttempts, serverTime, rev, updatedAt
 leader        the standings row in first place, or null
-standings[]   every boat, ranked: pos (null until it has a time), name, sail,
-              color, best/bestMs, gap/gapMs, tied, attempts ("1/3"),
+standings[]   every boat, ranked: pos (null until it has a time), boatId,
+              name, best/bestMs, gap/gapMs, tied, attempts ("1/3"),
               attemptsUsed, attemptsLeft, onCourse, times[]/timesMs[]
-onCourse[]    boats running now, first started first: name, sail, color,
+onCourse[]    boats running now, first started first: boatId, name, runId,
               startAt, elapsed/elapsedMs, attempt, attemptLabel ("2/3"),
               currentPos
-lastFinish    the latest timed run: name, time/timeMs, finishAt,
+lastFinish    the latest timed run: boatId, name, time/timeMs, finishAt,
               personalBest, pos, gap/gapMs to the leader - or null
 ```
 
