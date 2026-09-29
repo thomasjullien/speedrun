@@ -16,6 +16,10 @@ services:
       # Shared password for both posts. Leave AUTH_USER empty to disable.
       AUTH_USER: timing
       AUTH_PASS: ${AUTH_PASS:?set AUTH_PASS in the environment}
+      # Optional: opens the scoreboard and overlays without the password.
+      PUBLIC_BOARD: ${PUBLIC_BOARD:-}
+      # Optional: key required by the TV data feed (/api/live).
+      LIVE_TOKEN: ${LIVE_TOKEN:-}
     volumes:
       - race-timer-data:/app/data
 
