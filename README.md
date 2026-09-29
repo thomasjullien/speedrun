@@ -146,8 +146,20 @@ clock should count from `startAt`, which is in server time (`serverTime` gives
 the offset to apply against the local clock).
 
 The feed is read-only and sent with `Access-Control-Allow-Origin: *`, so a page
-served from elsewhere can fetch it. It sits behind the same `PUBLIC_BOARD`
-switch as the scoreboard: open when it is on, password-protected otherwise.
+served from elsewhere can fetch it.
+
+**Access.** Set `LIVE_TOKEN` to give the TV crew a key of their own, distinct
+from the operators' password:
+
+    /api/live?token=XXXX                       in the URL (vMix, EventSource)
+    Authorization: Bearer XXXX                 or as a header
+
+With `LIVE_TOKEN` set, the feed demands it (or the operators' password) even
+when `PUBLIC_BOARD` is on; the scoreboard and overlays are unaffected. Changing
+the token and redeploying cuts off whoever had the old one. Without
+`LIVE_TOKEN`, the feed follows `PUBLIC_BOARD` like the scoreboard. A token in
+the URL can end up in proxy logs, so treat it as a revocable key, not a secret
+for life.
 
 ## Running it locally
 
@@ -192,6 +204,7 @@ BASE_PATH=/speedrun
 AUTH_USER=timing
 AUTH_PASS=...
 PUBLIC_BOARD=1        # optional: opens /speedrun/board without the password
+LIVE_TOKEN=...        # optional: key for the TV data feed /speedrun/api/live
 ```
 
 The prefix is handled defensively: the server strips `BASE_PATH` when it is

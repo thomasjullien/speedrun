@@ -40,6 +40,11 @@ const BASE_PATH = (function () {
 const AUTH_USER = process.env.AUTH_USER || '';
 const AUTH_PASS = process.env.AUTH_PASS || '';
 
+// Optional token for the TV data feed (/api/live, /api/live/stream). When set,
+// the feed demands it - as ?token=... or 'Authorization: Bearer ...' - and
+// PUBLIC_BOARD no longer opens it. The operators' password still works too.
+const LIVE_TOKEN = process.env.LIVE_TOKEN || '';
+
 // When on, the scoreboard at /board is readable without the password.
 // Only reads are ever exempt - recording a time always needs the password.
 const PUBLIC_BOARD = /^(1|true|yes|on|open|public)$/i.test(setting('PUBLIC_BOARD'));
@@ -52,8 +57,9 @@ const BOARD_ROUTES = {
   '/overlay-oncourse': 1, '/overlay-oncourse/': 1,
   '/style.css': 1, '/app.js': 1,
   '/api/state': 1, '/api/stream': 1, '/api/time': 1,
-  '/api/live': 1, '/api/live/stream': 1,
 };
+
+const LIVE_ROUTES = { '/api/live': 1, '/api/live/stream': 1 };
 
 // Pages that are the app itself in another guise, all served from index.html.
 // Deliberately one path segment deep: the page loads app.js and style.css by
@@ -62,6 +68,8 @@ const PAGE_ROUTES = ['/board', '/overlay-standings', '/overlay-oncourse'];
 
 function isPublicBoardRequest(req, p) {
   if (!PUBLIC_BOARD || req.method !== 'GET') return false;
+  // The data feed is open with the board unless it has a token of its own.
+  if (LIVE_ROUTES[p] === 1) return !LIVE_TOKEN;
   // The logos the scoreboard displays have to load too.
   return BOARD_ROUTES[p] === 1 || p.indexOf('/logos/') === 0;
 }
@@ -620,18 +628,27 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
+/** True when the request carries the operators' Basic credentials. */
+function hasBasicAuth(req) {
+  const header = req.headers.authorization || '';
+  if (!AUTH_USER || header.indexOf('Basic ') !== 0) return false;
+  let decoded = '';
+  try { decoded = Buffer.from(header.slice(6), 'base64').toString('utf8'); } catch (e) {}
+  const i = decoded.indexOf(':');
+  return i > -1 && safeEqual(decoded.slice(0, i), AUTH_USER) && safeEqual(decoded.slice(i + 1), AUTH_PASS);
+}
+
+/** True when the request carries LIVE_TOKEN, in the query string or as a Bearer. */
+function hasLiveToken(req, url) {
+  if (!LIVE_TOKEN) return false;
+  const header = req.headers.authorization || '';
+  const given = header.indexOf('Bearer ') === 0 ? header.slice(7).trim() : url.searchParams.get('token');
+  return given != null && safeEqual(given, LIVE_TOKEN);
+}
+
 /** Returns true when the request may proceed; answers 401 itself otherwise. */
 function authorised(req, res) {
-  if (!AUTH_USER) return true;
-  const header = req.headers.authorization || '';
-  if (header.indexOf('Basic ') === 0) {
-    let decoded = '';
-    try { decoded = Buffer.from(header.slice(6), 'base64').toString('utf8'); } catch (e) {}
-    const i = decoded.indexOf(':');
-    if (i > -1 && safeEqual(decoded.slice(0, i), AUTH_USER) && safeEqual(decoded.slice(i + 1), AUTH_PASS)) {
-      return true;
-    }
-  }
+  if (!AUTH_USER || hasBasicAuth(req)) return true;
   res.writeHead(401, {
     'WWW-Authenticate': 'Basic realm="Race Timer", charset="UTF-8"',
     'Content-Type': 'text/plain; charset=utf-8',
@@ -661,8 +678,26 @@ const server = http.createServer(function (req, res) {
     return res.end('ok');
   }
 
-  // Writes always need the password, so an open scoreboard can still only read.
-  if (!isPublicBoardRequest(req, p) && !authorised(req, res)) return;
+  if (LIVE_ROUTES[p] === 1 && LIVE_TOKEN) {
+    // CORS preflight: a template sending the token as a Bearer header asks first.
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET',
+        'Access-Control-Allow-Headers': 'Authorization',
+        'Access-Control-Max-Age': '86400',
+      });
+      return res.end();
+    }
+    // No password dialog here: the feed is read by machines, not browsers.
+    if (!hasLiveToken(req, url) && !hasBasicAuth(req)) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return sendJson(res, 401, { error: 'Missing or invalid token' });
+    }
+  } else if (!isPublicBoardRequest(req, p) && !authorised(req, res)) {
+    // Writes always need the password, so an open scoreboard can still only read.
+    return;
+  }
 
   if (p === '/api/time') return sendJson(res, 200, { now: Date.now() });
 
@@ -767,7 +802,8 @@ server.listen(PORT, function () {
     (PUBLIC_BOARD ? '(open to all, read-only)' : '(password required)'));
   console.log('  TV overlays : ' + BASE_PATH + '/overlay-standings');
   console.log('                ' + BASE_PATH + '/overlay-oncourse');
-  console.log('  Live feed   : ' + BASE_PATH + '/api/live  (JSON, poll)');
+  console.log('  Live feed   : ' + BASE_PATH + '/api/live  (JSON, poll)  ' +
+    (LIVE_TOKEN ? '(token required)' : PUBLIC_BOARD ? '(open to all, read-only)' : '(password required)'));
   console.log('                ' + BASE_PATH + '/api/live/stream  (SSE, push)');
   // Printed as an absolute path: this is the exact path to mount a volume on.
   console.log('  Data dir    : ' + DATA_DIR + (writable ? '' : '  <-- NOT WRITABLE'));
